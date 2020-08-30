@@ -41,6 +41,17 @@ jobs:
         rustup update --no-self-update nightly-${{ matrix.target }}
         rustup default nightly-${{ matrix.target }}
       shell: bash
+    - name: Install g++-multilib
+      run: |
+        set -e
+        # Remove the ubuntu-toolchain-r/test PPA, which is added by default.
+        # Some packages were removed, and this is causing the g++multilib
+        # install to fail. Similar issue:
+        # https://github.com/scikit-learn/scikit-learn/issues/13928.
+        sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/test
+        sudo apt-get install g++-multilib
+      shell: bash
+      if: matrix.build == 'linux32'
     - name: Rust Version
       run: |
         rustc -Vv
