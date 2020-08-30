@@ -43,6 +43,8 @@ impl fmt::Display for Cache {
     }
 }
 
+static CACHE_LEVELS: &[Cache] = &[Cache::L1, Cache::L2, Cache::L3];
+
 fn bench_binsearch(c: &mut Criterion) {
     let mut group = c.benchmark_group("Binary Search Increasing");
     binsearch(&mut group, |i| i * 2);
@@ -56,7 +58,7 @@ fn bench_binsearch_duplicates(c: &mut Criterion) {
 
 fn bench_binsearch_worstcases(c: &mut Criterion) {
     let mut group = c.benchmark_group("Binary Search Worst cases");
-    for cache in [Cache::L1, Cache::L2, Cache::L3].iter() {
+    for cache in CACHE_LEVELS {
         let size = cache.size();
         let mut v: Vec<usize> = vec![0; size];
         let i = 1;
@@ -80,7 +82,7 @@ where
     // LCG constants from https://en.wikipedia.org/wiki/Numerical_Recipes.
     let r = black_box(|| 0_usize.wrapping_mul(1664525).wrapping_add(1013904223));
     let r = r();
-    for cache in [Cache::L1, Cache::L2, Cache::L3].iter() {
+    for cache in CACHE_LEVELS {
         let size = cache.size();
         let v: Vec<usize> = (0..size).map(&mapper).collect();
         group.bench_with_input(BenchmarkId::new("std", cache), &size, |b, size| {
@@ -104,7 +106,7 @@ fn bench_random_sorted(c: &mut Criterion) {
 
     let mut rng = rand::thread_rng();
     let mut group = c.benchmark_group("Binary Search With Random Elements Sorted");
-    for cache in [Cache::L1, Cache::L2, Cache::L3].iter() {
+    for cache in CACHE_LEVELS {
         let size = cache.size();
         let i = r % size;
         let mut v: Vec<usize> = (0..size).map(|_| rng.gen_range(1_usize, 256)).collect();
