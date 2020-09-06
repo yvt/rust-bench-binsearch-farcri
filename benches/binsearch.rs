@@ -62,7 +62,7 @@ fn bench_binsearch_worstcases(c: &mut Criterion) {
         let size = cache.size();
         let mut v: Vec<usize> = vec![0; size];
         let i = 1;
-        v[size - 1] = i;
+        *(v.last_mut().unwrap()) = i;
 
         group.bench_with_input(BenchmarkId::new("std", cache), &i, |b, i| {
             b.iter(|| std_binary_search(&v, &i))
