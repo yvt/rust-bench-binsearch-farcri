@@ -50,7 +50,6 @@ jobs:
 
     - name: Install Rust toolchain
       run: |
-        rustup update --no-self-update nightly-${{ matrix.target }}
         rustup default nightly-${{ matrix.target }}
       shell: bash
     - name: Install g++-multilib
@@ -70,6 +69,9 @@ jobs:
         rustc -Vv
         cargo -V
       shell: bash
+
+    - name: Unit tests
+      run: cargo test
 
     - name: Bench
       run: cargo bench --target ${{ matrix.target }}
