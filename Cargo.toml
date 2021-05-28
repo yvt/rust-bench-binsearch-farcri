@@ -10,15 +10,18 @@ publish = false
 [dependencies]
 
 [dev-dependencies]
-criterion = "0.3"
-rand = "0.7"
-
-[[bench]]
-name = "binsearch"
-harness = false
+rand = { version = "0.8", default-features = false, features = ["std_rng"] }
 
 # Reduce build time by setting proc-macro crates non optimized.
 [profile.release.build-override]
 opt-level = 0
 [profile.bench.build-override]
 opt-level = 0
+
+[dev-dependencies.farcri]
+git = "https://github.com/yvt/farcri-rs.git"
+rev = "14459e739d5c2b44fc09e872a2013b71cbf4d7ac"
+
+[[bench]]
+name = "binsearch"
+harness = false

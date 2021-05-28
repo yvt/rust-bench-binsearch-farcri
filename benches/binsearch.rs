@@ -1,8 +1,9 @@
-use std::fmt;
+#![no_std]
+#![cfg_attr(target_os = "none", no_main)]
+use core::fmt;
 
-use criterion::black_box;
-use criterion::measurement::Measurement;
-use criterion::{criterion_group, criterion_main, BenchmarkGroup, BenchmarkId, Criterion};
+use farcri::black_box;
+use farcri::{criterion_group, criterion_main, BenchmarkGroup, BenchmarkId, Criterion};
 
 use binary_search::{custom_binary_search_1, std_binary_search};
 
@@ -45,6 +46,8 @@ impl fmt::Display for Cache {
 
 static CACHE_LEVELS: &[Cache] = &[Cache::L1, Cache::L2, Cache::L3];
 
+static mut POOL: [usize; 10_000] = [0; 10_000];
+
 fn bench_binsearch(c: &mut Criterion) {
     let mut group = c.benchmark_group("Binary Search Increasing");
     binsearch(&mut group, |i| i * 2);
@@ -53,30 +56,35 @@ fn bench_binsearch(c: &mut Criterion) {
 
 fn bench_binsearch_duplicates(c: &mut Criterion) {
     let mut group = c.benchmark_group("Binary Search With Duplicates");
-    binsearch(&mut group, std::convert::identity);
+    binsearch(&mut group, core::convert::identity);
 }
 
 fn bench_binsearch_worstcases(c: &mut Criterion) {
     let mut group = c.benchmark_group("Binary Search Worst cases");
     for cache in CACHE_LEVELS {
         let size = cache.size();
-        let mut v: Vec<usize> = vec![0; size];
+        let v = unsafe {
+            if let Some(x) = POOL.get_mut(..size) {
+                x
+            } else {
+                continue;
+            }
+        };
         let i = 1;
         *(v.last_mut().unwrap()) = i;
 
-        group.bench_with_input(BenchmarkId::new("std", cache), &i, |b, i| {
+        group.bench_with_input(BenchmarkId::new(&"std", cache), &i, |b, i| {
             b.iter(|| std_binary_search(&v, &i))
         });
-        group.bench_with_input(BenchmarkId::new("custom_1", cache), &i, |b, i| {
+        group.bench_with_input(BenchmarkId::new(&"custom_1", cache), &i, |b, i| {
             b.iter(|| custom_binary_search_1(&v, &i))
         });
     }
     group.finish();
 }
 
-fn binsearch<'a, M, F>(group: &mut BenchmarkGroup<'a, M>, mapper: F)
+fn binsearch<F>(group: &mut BenchmarkGroup<'_, '_>, mapper: F)
 where
-    M: Measurement,
     F: Fn(usize) -> usize,
 {
     // LCG constants from https://en.wikipedia.org/wiki/Numerical_Recipes.
@@ -84,13 +92,22 @@ where
     let r = r();
     for cache in CACHE_LEVELS {
         let size = cache.size();
-        let v: Vec<usize> = (0..size).map(&mapper).collect();
-        group.bench_with_input(BenchmarkId::new("std", cache), &size, |b, size| {
+        let v = unsafe {
+            if let Some(x) = POOL.get_mut(..size) {
+                x
+            } else {
+                continue;
+            }
+        };
+        for (i, x) in v.iter_mut().enumerate() {
+            *x = mapper(i);
+        }
+        group.bench_with_input(BenchmarkId::new(&"std", cache), &size, |b, size| {
             // Lookup the whole range to get 50% hits and 50% misses.
             let i = mapper(r % size);
             b.iter(|| std_binary_search(&v, &i))
         });
-        group.bench_with_input(BenchmarkId::new("custom_1", cache), &size, |b, size| {
+        group.bench_with_input(BenchmarkId::new(&"custom_1", cache), &size, |b, size| {
             let i = mapper(r % size);
             b.iter(|| custom_binary_search_1(&v, &i))
         });
@@ -98,24 +115,33 @@ where
 }
 
 fn bench_random_sorted(c: &mut Criterion) {
-    use rand::Rng;
+    use rand::{Rng, SeedableRng};
 
     // LCG constants from https://en.wikipedia.org/wiki/Numerical_Recipes.
     let r = black_box(|| 0_usize.wrapping_mul(1664525).wrapping_add(1013904223));
     let r = r();
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rngs::StdRng::seed_from_u64(123456789876545);
     let mut group = c.benchmark_group("Binary Search With Random Elements Sorted");
     for cache in CACHE_LEVELS {
         let size = cache.size();
         let i = r % size;
-        let mut v: Vec<usize> = (0..size).map(|_| rng.gen_range(1_usize, 256)).collect();
+        let v = unsafe {
+            if let Some(x) = POOL.get_mut(..size) {
+                x
+            } else {
+                continue;
+            }
+        };
+        for x in v.iter_mut() {
+            *x = rng.gen_range(1_usize..=256);
+        }
         v.sort_unstable();
 
-        group.bench_with_input(BenchmarkId::new("std", cache), &i, |b, i| {
+        group.bench_with_input(BenchmarkId::new(&"std", cache), &i, |b, i| {
             b.iter(|| std_binary_search(&v, &i))
         });
-        group.bench_with_input(BenchmarkId::new("custom_1", cache), &i, |b, i| {
+        group.bench_with_input(BenchmarkId::new(&"custom_1", cache), &i, |b, i| {
             b.iter(|| custom_binary_search_1(&v, &i))
         });
     }

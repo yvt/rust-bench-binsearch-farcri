@@ -1,8 +1,9 @@
+#![no_std]
 #[cfg(test)]
 mod tests;
 
-use std::cmp::Ordering;
-use std::cmp::Ordering::*;
+use core::cmp::Ordering;
+use core::cmp::Ordering::*;
 
 fn std_binary_search_by<'a, T, F>(slice: &'a [T], mut f: F) -> Result<usize, usize>
 where
